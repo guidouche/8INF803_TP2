@@ -1,5 +1,6 @@
 import json
 import os
+import sys
 
 import pyspark
 import requests
@@ -76,9 +77,9 @@ class Parsing:
         # print(spellList[0][0])
 
 
-def fill_file(spell):
+def fill_file(spell, filename):
     a = []
-    filename = 'myFile.json'
+    #filename = 'myFile.json'
 
     if not os.path.isfile(filename):
         a.append(spell)
@@ -93,69 +94,84 @@ def fill_file(spell):
             f.write(json.dumps(feeds, indent=2))
 
 
-if __name__ == '__main__':
-    # pars = Parsing()
-    #
-    # spellListHtmlPage = BeautifulSoup(
-    #      pars.convert_result_soup_to_string(pars.init_soup("Monsters.aspx?Letter=All", True), "td"), HTML_PARSER)
-    # spellDisplayDiv = spellListHtmlPage.findAll('a')
-    # t = pars.convert_result_soup_to_string(
-    #      pars.init_soup(pars.convert_result_soup_to_string(spellListHtmlPage, 'a'), False), 'a')
-    #
-    #
-    #
-    #
-    # arrayMonster = []
-    #
-    # t = t.split("\"")
-    # for u in t:
-    #     if "MonsterDisplay" in u:
-    #         arrayMonster.append(Monster(u))
-    # # arrayMonster.append(Monster("MonsterDisplay.aspx?ItemName=Solar"))
-    # counter = 0
-    #
-    # for j in arrayMonster:
-    #     #if counter > 10:
-    #     #    break
-    #     print(j.url)
-    #
-    #     counter += 1
-    #     tmpSpellsList = pars.get_spell_list(pars.init_soup(j.url, True))
-    #
-    #     if tmpSpellsList is not None:
-    #         for spell in tmpSpellsList:
-    #             if spell[0][-1] == ' ':
-    #                 my_str = spell[0][:-1]
-    #             else:
-    #                 my_str = spell[0]
-    #             j.spells.append(my_str)
-    #     j.spells = list(dict.fromkeys(j.spells))
-    #
-    #
-    #     myDict = {
-    #         "name": j.name,
-    #         "spells": j.spells
-    #     }
-    #
-    #     fill_file(myDict)
-    #     print(myDict)
+def execute_parsing():
 
-# df = spark.read.json("./myFile.json")
-#
+    pars = Parsing()
+
+    spellListHtmlPage = BeautifulSoup(
+        pars.convert_result_soup_to_string(pars.init_soup("Monsters.aspx?Letter=All", True), "td"), HTML_PARSER)
+    spellDisplayDiv = spellListHtmlPage.findAll('a')
+    t = pars.convert_result_soup_to_string(
+        pars.init_soup(pars.convert_result_soup_to_string(spellListHtmlPage, 'a'), False), 'a')
+
+
+
+
+    arrayMonster = []
+
+    t = t.split("\"")
+    for u in t:
+        if "MonsterDisplay" in u:
+            arrayMonster.append(Monster(u))
+    # arrayMonster.append(Monster("MonsterDisplay.aspx?ItemName=Solar"))
+    counter = 0
+
+    for j in arrayMonster:
+        #if counter > 10:
+        #    break
+        print(j.url)
+
+        counter += 1
+        tmpSpellsList = pars.get_spell_list(pars.init_soup(j.url, True))
+
+        if tmpSpellsList is not None:
+            for spell in tmpSpellsList:
+                if spell[0][-1] == ' ':
+                    my_str = spell[0][:-1]
+                else:
+                    my_str = spell[0]
+                j.spells.append(my_str)
+        j.spells = list(dict.fromkeys(j.spells))
+
+
+        myDict = {
+            "name": j.name,
+            "spells": j.spells
+        }
+
+        fill_file(myDict, "myFile.json")
+        print(myDict)
+
+def spark_request():
     multiline_df = spark.read.option("multiline", "true") \
-     .json("./myFile.json")
-#
+        .json("./myFile.json")
     multiline_df.show()
 
-    aggr_rdd = multiline_df.rdd.flatMap(lambda t: [(i.lower(), t[0]) for i in t[1]]) #.collect()#.map(lambda file, word: (word, [file]))
+    aggr_rdd = multiline_df.rdd.flatMap(lambda t: [(i.lower(), t[0]) for i in t[1]])
     inverted_index = aggr_rdd.groupByKey().mapValues(list).collect()
 
-    print(inverted_index[0][0])
+    for spell in inverted_index:
+        myDict = {
+            "Spell": spell[0],
+            "Monster": spell[1]
+        }
+        print(myDict)
+        fill_file(myDict, "invertedIndex.json")
 
-# print(pars.get_spell_list(pars.init_soup("MonsterDisplay.aspx?ItemName=Solar", True)))
-# print(pars.get_spell_list(pars.init_soup("MonsterDisplay.aspx?ItemName=Astomoi", True)))
 
-# https://aonprd.com/MonsterDisplay.aspx?ItemName=Aashaq%27s%20Wyvern
-# MonsterDisplay.aspx?ItemName=Aashaq%27s%20Wyvern
-# https://aonprd.com/MonsterDisplay.aspx?ItemName=Aashaq%27s%20Wyvern
-# spellName = spellDisplayDiv.get("td")
+if __name__ == '__main__':
+
+    print('Select the operation to do:')
+    print('1: Parse the page and fill a JSON file')
+    print('2: Execute the inverted index research (Be sure myFile.json is filled)')
+    print('3: Exit the program')
+
+    x = input()
+    print('\n')
+
+    if int(x) == 1:
+        execute_parsing()
+    if int(x) == 2:
+        spark_request()
+    if int(x) == 3:
+        sys.exit(0)
