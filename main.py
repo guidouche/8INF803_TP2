@@ -2,15 +2,15 @@ import json
 import os
 import sys
 
-import pyspark
 import requests
 from bs4 import BeautifulSoup
 import re
 
-from pyspark import *
 from pyspark.shell import spark
 
 from MonsterClass import Monster
+from Spell import *
+from SqLite import *
 
 HTML_PARSER = "html.parser"
 
@@ -34,7 +34,6 @@ class Parsing:
 
     def convert_result_soup_to_string(self, soup, tag):
 
-        # spellListHtmlPage = BeautifulSoup(str(self.base_url + url), HTML_PARSER)
         spellDisplayDiv = soup.findAll(tag)
         paragraphs = []
         for x in spellDisplayDiv:
@@ -54,32 +53,19 @@ class Parsing:
 
         str1 = ''.join(paragraphs)
 
-        # print(str1)
-
-        # (.*<h3 class=\"framing\")>(Offense<\/h3>.*<h3 class=\"framing\">Statistics<\/h3>)
         spellDiv = re.search(r"(.*<h3 class=\"framing\")>(Offense<\/h3>((.|\n)*)<h3 class=\"framing\">Statistics)",
                              str1)
 
-        # print(str(spellDiv))
-
-        # print(spellDiv)
         if "Spell" in str(spellDiv.group()):
-            # <b>Spells Prepared <\/b>((.|\n)*)+
-            # (<b>Spells*.*<\/b>((.|\n)*)+)
             spellListDiv = re.search(r"(<b.*Spells*.*<\/b>((.|\n)*)+)", str1)
-            # print(spellListDiv.group())
 
             spellList = re.findall(r"(?<=<i>)((\w|\d|\n|[’]| )+?)(?=<\/i>)", str(spellListDiv.group()))
 
             return spellList
-            # for spell in spellList:
-            #    print(spell[0])
-        # print(spellList[0][0])
 
 
 def fill_file(spell, filename):
     a = []
-    #filename = 'myFile.json'
 
     if not os.path.isfile(filename):
         a.append(spell)
@@ -95,7 +81,6 @@ def fill_file(spell, filename):
 
 
 def execute_parsing():
-
     pars = Parsing()
 
     spellListHtmlPage = BeautifulSoup(
@@ -104,22 +89,15 @@ def execute_parsing():
     t = pars.convert_result_soup_to_string(
         pars.init_soup(pars.convert_result_soup_to_string(spellListHtmlPage, 'a'), False), 'a')
 
-
-
-
     arrayMonster = []
 
     t = t.split("\"")
     for u in t:
         if "MonsterDisplay" in u:
             arrayMonster.append(Monster(u))
-    # arrayMonster.append(Monster("MonsterDisplay.aspx?ItemName=Solar"))
     counter = 0
 
     for j in arrayMonster:
-        #if counter > 10:
-        #    break
-        print(j.url)
 
         counter += 1
         # tmpSpellsList = pars.get_spell_list(pars.init_soup(j.url, True))
@@ -133,7 +111,6 @@ def execute_parsing():
         #         j.spells.append(my_str)
         # j.spells = list(dict.fromkeys(j.spells))
 
-
         myDict = {
             "name": j.name,
             "url": "https://aonprd.com/" + j.url
@@ -141,6 +118,7 @@ def execute_parsing():
 
         fill_file(myDict, "my.json")
         print(myDict)
+
 
 def spark_request():
     multiline_df = spark.read.option("multiline", "true") \
@@ -159,12 +137,43 @@ def spark_request():
         fill_file(myDict, "invertedIndex.json")
 
 
+def fill_db_file(sqLite):
+    spell_file_name = 'spell.json'
+    sqLite.drop_table()
+    creatureData = json.loads(open('invertedIndex.json').read())
+    with open(spell_file_name) as feedsjson:
+        feeds = json.load(feedsjson)
+
+    for spell in feeds:
+        spell_class = Spell(spell["name"])
+        spell_class.level = spell["level"]
+        spell_class.classLinked = spell["class_linked"]
+        spell_class.components = spell["components"]
+        spell_class.creatures = return_creature_from_spell(spell["name"])
+        spell_class.resistance = spell["spell_resistance"]
+
+        sqLite.put_spell(spell_class)
+
+
+def return_creature_from_spell(spell_name):
+    spell_file_name = 'invertedIndex.json'
+    with open(spell_file_name) as feedsjson:
+        feeds = json.load(feedsjson)
+        for spell in feeds:
+            if spell["Spell"].lower() == spell_name.lower():
+                monster = spell["Monster"]
+                return monster
+    return ""
+
+
 if __name__ == '__main__':
+    sqLite = SqLite("spell.db")
 
     print('Select the operation to do:')
     print('1: Parse the page and fill a JSON file')
     print('2: Execute the inverted index research (Be sure myFile.json is filled)')
-    print('3: Exit the program')
+    print('3: Fill the DBs with an example file')
+    print('4: Exit the program')
 
     x = input()
     print('\n')
@@ -174,4 +183,6 @@ if __name__ == '__main__':
     if int(x) == 2:
         spark_request()
     if int(x) == 3:
+        fill_db_file(sqLite)
+    if int(x) == 4:
         sys.exit(0)
