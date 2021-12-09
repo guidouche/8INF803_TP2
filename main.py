@@ -122,24 +122,24 @@ def execute_parsing():
         print(j.url)
 
         counter += 1
-        tmpSpellsList = pars.get_spell_list(pars.init_soup(j.url, True))
-
-        if tmpSpellsList is not None:
-            for spell in tmpSpellsList:
-                if spell[0][-1] == ' ':
-                    my_str = spell[0][:-1]
-                else:
-                    my_str = spell[0]
-                j.spells.append(my_str)
-        j.spells = list(dict.fromkeys(j.spells))
+        # tmpSpellsList = pars.get_spell_list(pars.init_soup(j.url, True))
+        #
+        # if tmpSpellsList is not None:
+        #     for spell in tmpSpellsList:
+        #         if spell[0][-1] == ' ':
+        #             my_str = spell[0][:-1]
+        #         else:
+        #             my_str = spell[0]
+        #         j.spells.append(my_str)
+        # j.spells = list(dict.fromkeys(j.spells))
 
 
         myDict = {
             "name": j.name,
-            "spells": j.spells
+            "url": "https://aonprd.com/" + j.url
         }
 
-        fill_file(myDict, "myFile.json")
+        fill_file(myDict, "my.json")
         print(myDict)
 
 def spark_request():
