@@ -8,5 +8,7 @@ class Spell:
         self.components = []
         self.level = None
         self.resistance = None
+        self.url = ""
+        self.description=""
         self.creatures = []
         self.url = req.pathname2url(name)

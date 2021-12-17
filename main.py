@@ -8,6 +8,7 @@ import re
 
 from pyspark.shell import spark
 
+from Creature import Creature
 from MonsterClass import Monster
 from Spell import *
 from SqLite import *
@@ -100,16 +101,16 @@ def execute_parsing():
     for j in arrayMonster:
 
         counter += 1
-        # tmpSpellsList = pars.get_spell_list(pars.init_soup(j.url, True))
-        #
-        # if tmpSpellsList is not None:
-        #     for spell in tmpSpellsList:
-        #         if spell[0][-1] == ' ':
-        #             my_str = spell[0][:-1]
-        #         else:
-        #             my_str = spell[0]
-        #         j.spells.append(my_str)
-        # j.spells = list(dict.fromkeys(j.spells))
+        tmpSpellsList = pars.get_spell_list(pars.init_soup(j.url, True))
+
+        if tmpSpellsList is not None:
+            for spell in tmpSpellsList:
+                if spell[0][-1] == ' ':
+                    my_str = spell[0][:-1]
+                else:
+                    my_str = spell[0]
+                j.spells.append(my_str)
+        j.spells = list(dict.fromkeys(j.spells))
 
         myDict = {
             "name": j.name,
@@ -139,6 +140,7 @@ def spark_request():
 
 def fill_db_file(sqLite):
     spell_file_name = 'spell.json'
+    creature_file_name = 'my.json'
     sqLite.drop_table()
     creatureData = json.loads(open('invertedIndex.json').read())
     with open(spell_file_name) as feedsjson:
@@ -149,10 +151,20 @@ def fill_db_file(sqLite):
         spell_class.level = spell["level"]
         spell_class.classLinked = spell["class_linked"]
         spell_class.components = spell["components"]
+        spell_class.url = spell["url"]
+        spell_class.description = spell["des"]
         spell_class.creatures = return_creature_from_spell(spell["name"])
         spell_class.resistance = spell["spell_resistance"]
 
         sqLite.put_spell(spell_class)
+
+    with open(creature_file_name) as feedsjson:
+        feeds = json.load(feedsjson)
+
+    for creature in feeds:
+        creature_class = Creature(creature["name"])
+        creature_class.url = creature["url"]
+        sqLite.put_creature(creature_class)
 
 
 def return_creature_from_spell(spell_name):
@@ -167,7 +179,7 @@ def return_creature_from_spell(spell_name):
 
 
 if __name__ == '__main__':
-    sqLite = SqLite("spell.db")
+    sqLite = SqLite()
 
     print('Select the operation to do:')
     print('1: Parse the page and fill a JSON file')
